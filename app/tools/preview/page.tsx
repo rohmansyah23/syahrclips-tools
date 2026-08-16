@@ -9,6 +9,7 @@ import { formatRange } from "@/lib/format";
 import { parseYouTubeUrl } from "@/lib/youtube";
 import { parseRangeToSeconds, parseTimeToSeconds } from "@/lib/time";
 import { LLM_PROMPT, TIME_CONVERSIONS } from "@/lib/constants";
+import { copyText } from "@/lib/clipboard";
 import type { ClipCandidate } from "@/lib/types";
 
 const SESSION_KEY = "syahrclips:preview";
@@ -130,7 +131,7 @@ export default function PreviewPage() {
   }, [videoInput, jsonInput]);
 
   async function copyPrompt() {
-    await navigator.clipboard.writeText(LLM_PROMPT);
+    await copyText(LLM_PROMPT);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
@@ -169,7 +170,20 @@ export default function PreviewPage() {
     if (c.reason) payload.reason = c.reason;
     if (typeof c.score === "number") payload.score = c.score;
     if (c.title) payload.title = c.title;
-    await navigator.clipboard.writeText(JSON.stringify(payload));
+    await copyText(JSON.stringify(payload));
+  }
+
+  function resetAll() {
+    setVideoInput("");
+    setJsonInput("");
+    setVideoId(null);
+    setVideoError(null);
+    setCandidates([]);
+    setJsonError(null);
+    setCopied(false);
+    setActiveIndex(null);
+    setFormOpen(true);
+    sessionStorage.removeItem(SESSION_KEY);
   }
 
   function handleTune(index: number, start: number, end: number) {
@@ -223,6 +237,15 @@ export default function PreviewPage() {
             <Button type="button" variant="secondary" onClick={loadExample} className="sm:shrink-0">
               Muat contoh
             </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={resetAll}
+              disabled={!videoInput && !jsonInput && candidates.length === 0}
+              className="sm:shrink-0"
+            >
+              Reset
+            </Button>
           </div>
           {videoError && <p className="text-sm text-foreground">⚠ {videoError}</p>}
           <Textarea
@@ -261,6 +284,9 @@ export default function PreviewPage() {
               onClick={() => setFormOpen((v) => !v)}
             >
               {formOpen ? "Tutup form" : "Edit JSON"}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={resetAll}>
+              Reset
             </Button>
           </div>
 

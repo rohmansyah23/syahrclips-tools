@@ -8,6 +8,7 @@ import { FlowSteps } from "@/components/FlowSteps";
 import { ErrorNotice } from "@/components/ErrorNotice";
 import { formatRange } from "@/lib/format";
 import { buildPromptBundle } from "@/lib/llm";
+import { copyText } from "@/lib/clipboard";
 import type { TranscriptResult } from "@/lib/types";
 
 const SESSION_KEY = "syahrclips:transcript";
@@ -32,6 +33,11 @@ export default function TranscriptPage() {
   const [error, setError] = useState<ApiError | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
+
+  const INITIAL_SEGMENTS = 10;
+  const visibleSegments = showAll ? result?.segments ?? [] : (result?.segments ?? []).slice(0, INITIAL_SEGMENTS);
 
   useEffect(() => {
     try {
@@ -56,6 +62,8 @@ export default function TranscriptPage() {
     setLoading(true);
     setError(null);
     setResult(null);
+    setShowAll(false);
+    setCopyError(null);
     try {
       const res = await fetch("/api/transcript", {
         method: "POST",
@@ -85,14 +93,22 @@ export default function TranscriptPage() {
 
   async function copyAll() {
     if (!result) return;
-    await navigator.clipboard.writeText(result.text);
+    try {
+      await copyText(result.text);
+    } catch {
+      setCopyError("Salin gagal, silakan salin manual dari teks di bawah.");
+    }
   }
 
   async function copyPromptBundle() {
     if (!result) return;
-    await navigator.clipboard.writeText(buildPromptBundle(result.text));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await copyText(buildPromptBundle(result.text));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopyError("Salin gagal, silakan salin manual dari teks di bawah.");
+    }
   }
 
   function downloadTxt() {
@@ -103,6 +119,17 @@ export default function TranscriptPage() {
     a.download = `${result.videoId}.txt`;
     a.click();
     URL.revokeObjectURL(a.href);
+  }
+
+  function resetAll() {
+    setUrl("");
+    setResult(null);
+    setError(null);
+    setLoading(false);
+    setCopied(false);
+    setCopyError(null);
+    setShowAll(false);
+    sessionStorage.removeItem(SESSION_KEY);
   }
 
   return (
@@ -126,6 +153,15 @@ export default function TranscriptPage() {
         />
         <Button type="submit" disabled={loading || !url.trim()} className="sm:shrink-0">
           {loading ? "Mengambil transkrip…" : "Ambil transkrip"}
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={resetAll}
+          disabled={!url.trim() && !result}
+          className="sm:shrink-0"
+        >
+          Reset
         </Button>
       </form>
 
@@ -157,6 +193,11 @@ export default function TranscriptPage() {
                 </Button>
               </span>
             </div>
+            {copyError && (
+              <p className="mb-3 text-xs text-accent" role="alert">
+                {copyError}
+              </p>
+            )}
             {result.title && (
               <h2 className="font-serif text-2xl tracking-tight">{result.title}</h2>
             )}
@@ -181,7 +222,7 @@ export default function TranscriptPage() {
                 Transkrip kosong untuk video ini.
               </p>
             )}
-            {result.segments.map((segment, i) => (
+            {visibleSegments.map((segment, i) => (
               <div
                 key={i}
                 className="grid grid-cols-1 gap-1 px-5 py-3 sm:grid-cols-[190px_1fr] sm:gap-6"
@@ -193,6 +234,16 @@ export default function TranscriptPage() {
               </div>
             ))}
           </Card>
+
+          {result.segments.length > INITIAL_SEGMENTS && (
+            <div className="text-center">
+              <Button variant="secondary" onClick={() => setShowAll((v) => !v)}>
+                {showAll
+                  ? "Tampilkan lebih sedikit"
+                  : `Lihat semua transkrip (${result.segments.length} segmen)`}
+              </Button>
+            </div>
+          )}
 
           <Card className="max-w-2xl border-accent/40 bg-accent/10 p-5">
             <p className="micro-label mb-2 text-accent">Langkah berikutnya</p>

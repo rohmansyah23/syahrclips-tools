@@ -139,6 +139,16 @@ export function ClipTool({
     await submitDownload();
   }
 
+  function resetAll() {
+    setVideoInput("");
+    setStart("");
+    setEnd("");
+    setResolution(String(DEFAULT_CLIP_RESOLUTION));
+    setStatus("idle");
+    setMessage("");
+    setError(null);
+  }
+
   return (
     <div className="container-editorial py-14 sm:py-20">
       <SectionHeader
@@ -243,6 +253,14 @@ export function ClipTool({
         )}
         <Button type="submit" disabled={status === "loading"}>
           {status === "loading" ? "Menyiapkan klip…" : "Download klip"}
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={resetAll}
+          disabled={status === "loading" || (!videoInput && !start && !end)}
+        >
+          Reset
         </Button>
       </form>
 
