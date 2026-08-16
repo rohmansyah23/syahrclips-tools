@@ -33,11 +33,15 @@ await browserClient.send("Browser.setDownloadBehavior", {
 });
 
 // "Failed to load resource" = respons 4xx/5xx dari tes error yang disengaja.
+// Error console dari iframe YouTube/Google dibuang — bukan bagian dari app kita.
 const consoleErrors = [];
 page.on("console", (msg) => {
-  if (msg.type() === "error" && !msg.text().includes("Failed to load resource")) {
-    consoleErrors.push(msg.text());
-  }
+  if (msg.type() !== "error") return;
+  const url = msg.location()?.url || "";
+  if (/youtube\.com|googlevideo\.com|google(apis)?\.com|ytimg\.com|ggpht\.com/i.test(url))
+    return;
+  if (msg.text().includes("Failed to load resource")) return;
+  consoleErrors.push(msg.text());
 });
 page.on("pageerror", (err) => consoleErrors.push(`PAGEERROR: ${err.message}`));
 
@@ -64,6 +68,59 @@ try {
   );
   check("Transcript: format [HH:MM:SS – HH:MM:SS]", tsOk);
 
+  // ── 2b. Transcript: batasan 10 segmen + "Lihat semua transkrip" ──
+  const segRowSel = "[class*='sm:grid-cols-[190px_1fr]']";
+  const initialRows = await page.$$eval(segRowSel, (els) => els.length);
+  check("Transcript: hanya 10 segmen awal tampil", initialRows === 10, `baris=${initialRows}`);
+  const hasMoreBtn = await page.evaluate(() =>
+    [...document.querySelectorAll("button")].some((b) =>
+      b.textContent.trim().startsWith("Lihat semua transkrip"),
+    ),
+  );
+  check("Transcript: tombol 'Lihat semua transkrip' tampil", hasMoreBtn);
+  const segTotal = await page.evaluate(() => {
+    const stat = [...document.querySelectorAll("div")].find(
+      (d) => d.querySelector("p.micro-label")?.textContent?.trim().toUpperCase() === "SEGMEN",
+    );
+    const num = stat?.querySelector("p.font-mono")?.textContent;
+    return num ? Number(num) : NaN;
+  });
+  await page.evaluate(() => {
+    const btn = [...document.querySelectorAll("button")].find((b) =>
+      b.textContent.trim().startsWith("Lihat semua transkrip"),
+    );
+    btn?.click();
+  });
+  const afterMore = await page.$$eval(segRowSel, (els) => els.length);
+  check("Transcript: view more menampilkan semua segmen", afterMore === segTotal, `${afterMore}/${segTotal}`);
+  await page.evaluate(() => {
+    const btn = [...document.querySelectorAll("button")].find((b) =>
+      b.textContent.trim() === "Tampilkan lebih sedikit",
+    );
+    btn?.click();
+  });
+  const backRows = await page.$$eval(segRowSel, (els) => els.length);
+  check("Transcript: view more tutup kembali ke 10", backRows === 10, `baris=${backRows}`);
+
+  // ── 2c. Transcript: tombol Reset ─────────────────────────────
+  await page.evaluate(() => {
+    const btn = [...document.querySelectorAll("button")].find((b) =>
+      b.textContent.trim() === "Reset",
+    );
+    btn?.click();
+  });
+  const transReset = await page.evaluate(() => {
+    const input = document.querySelector('input[placeholder*="youtube.com"]');
+    return {
+      inputEmpty: input ? input.value === "" : false,
+      resultGone: !document.body.innerText.includes("Salin semua"),
+    };
+  });
+  check(
+    "Transcript: Reset membersihkan hasil & input",
+    transReset.inputEmpty && transReset.resultGone,
+  );
+
   // ── 3. Transcript: error 400 → ErrorNotice ──────────────────
   await page.goto(`${BASE}/tools/transcript`, { waitUntil: "networkidle0" });
   await page.type('input[placeholder*="youtube.com"]', "https://example.com/bukan-youtube");
@@ -75,17 +132,77 @@ try {
     err400.includes("INPUT INVALID") && err400.includes("HTTP 400"),
   );
 
-  // ── 4. Preview: iframe per candidate ─────────────────────────
+  // ── 4. Preview: grid candidate + modal player YT.Player ─────
   await page.goto(`${BASE}/tools/preview`, { waitUntil: "networkidle0" });
   await page.type('input[placeholder*="videoId"]', VIDEO);
-  await page.click('button:not([disabled])');
-  await page.waitForSelector("iframe[src*='youtube-nocookie.com/embed/']", { timeout: 15000 });
-  const iframeCount = await page.$$eval("iframe[src*='youtube-nocookie.com/embed/']", (els) => els.length);
-  const rangeText = await page.evaluate(() => document.body.innerText.includes("[00:01:05 – 00:01:10]"));
-  check("Preview: 2 iframe candidate (contoh JSON)", iframeCount === 2, `iframe=${iframeCount}`);
+  await page.click('button:not([disabled])'); // tombol pertama di form = Preview
+  await waitForText(page, "candidate valid", 15000);
+  const candidateCount = await page.$$eval("[class*='lg:grid-cols-2'] > div", (els) => els.length);
+  check("Preview: 2 kartu candidate (contoh JSON)", candidateCount === 2, `kartu=${candidateCount}`);
+  const rangeText = await page.evaluate(() =>
+    document.body.innerText.includes("[00:01:05 – 00:01:10]"),
+  );
   check("Preview: range mono tampil", rangeText);
 
-  // ── 5. Clip: error validasi (start ≥ end) ────────────────────
+  // Buka modal "Lihat Video" kandidat pertama → YT.Player + iframe embed.
+  await page.evaluate(() => {
+    const btn = [...document.querySelectorAll("button")].find(
+      (b) => b.textContent.trim() === "Lihat Video",
+    );
+    btn?.click();
+  });
+  await page.waitForSelector('iframe[src*="youtube.com/embed/"]', { timeout: 30000 });
+  const modalSrc = await page.evaluate(() => {
+    const f = document.querySelector('iframe[src*="youtube.com/embed/"]');
+    return f ? f.getAttribute("src") || "" : "";
+  });
+  check(
+    "Preview: modal memuat iframe embed + start=65",
+    modalSrc.includes("/embed/") && modalSrc.includes("start=65"),
+    modalSrc.slice(0, 80),
+  );
+  // Tutup modal supaya reset tidak terhalang.
+  await page.keyboard.press("Escape");
+
+  // Persistensi: reload harus memulihkan input & hasil dari sessionStorage.
+  await page.reload({ waitUntil: "networkidle0" });
+  const restoredVideo = await page.evaluate(() => {
+    const input = document.querySelector('input[placeholder*="videoId"]');
+    return input ? input.value : "";
+  });
+  check("Preview: sessionStorage memulihkan input setelah reload", restoredVideo === VIDEO, restoredVideo);
+
+  // ── 5. Preview: tombol Reset (header hasil) ──────────────────
+  await page.evaluate(() => {
+    const btn = [...document.querySelectorAll("button")].find(
+      (b) => b.textContent.trim() === "Reset",
+    );
+    btn?.click();
+  });
+  await waitForText(page, "Muat contoh", 10000);
+  const prevReset = await page.evaluate(() => {
+    const input = document.querySelector('input[placeholder*="videoId"]');
+    const ta = document.querySelector("textarea");
+    return {
+      videoEmpty: input ? input.value === "" : false,
+      jsonEmpty: ta ? ta.value === "" : false,
+      gridGone: document.querySelector("[class*='lg:grid-cols-2']") === null,
+    };
+  });
+  check(
+    "Preview: Reset mengosongkan input + textarea + hasil",
+    prevReset.videoEmpty && prevReset.jsonEmpty && prevReset.gridGone,
+  );
+
+  // Reset juga menghapus sessionStorage → reload tidak memulihkan data lama.
+  await page.reload({ waitUntil: "networkidle0" });
+  const afterResetVideo = await page.evaluate(() => {
+    const input = document.querySelector('input[placeholder*="videoId"]');
+    return input ? input.value : "";
+  });
+  check("Preview: Reset menghapus sessionStorage (reload tetap kosong)", afterResetVideo === "");
+
+  // ── 6. Clip: error validasi (start ≥ end) ────────────────────
   await page.goto(`${BASE}/tools/clip`, { waitUntil: "networkidle0" });
   await page.type("#clip-video", VIDEO);
   await page.type("#clip-start", "50");
@@ -95,7 +212,31 @@ try {
   const clipErr = await page.evaluate(() => document.body.innerText);
   check("Clip: ErrorNotice validasi tampil", clipErr.includes("Rentang tidak valid"));
 
-  // ── 6. Clip: sukses unduh (dengan fallback rate-limit) ───────
+  // ── 7. Clip: tombol Reset ────────────────────────────────────
+  await page.evaluate(() => {
+    const btn = [...document.querySelectorAll("button")].find((b) =>
+      b.textContent.trim() === "Reset",
+    );
+    btn?.click();
+  });
+  const clipReset = await page.evaluate(() => {
+    const get = (sel) => document.querySelector(sel);
+    const video = get("#clip-video");
+    const start = get("#clip-start");
+    const end = get("#clip-end");
+    return {
+      videoEmpty: video ? video.value === "" : false,
+      startEmpty: start ? start.value === "" : false,
+      endEmpty: end ? end.value === "" : false,
+      errGone: !document.body.innerText.includes("Rentang tidak valid"),
+    };
+  });
+  check(
+    "Clip: Reset mengosongkan form & error",
+    clipReset.videoEmpty && clipReset.startEmpty && clipReset.endEmpty && clipReset.errGone,
+  );
+
+  // ── 8. Clip: sukses unduh (dengan fallback rate-limit) ───────
   // Jeda lebih lama supaya YouTube tidak rate-limit dari tes sebelumnya.
   await new Promise((r) => setTimeout(r, 30000));
   await page.goto(`${BASE}/tools/clip`, { waitUntil: "networkidle0" });

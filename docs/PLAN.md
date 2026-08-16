@@ -246,11 +246,21 @@ Status per 16 Agu 2026 — **F0–F5 selesai, terverifikasi lokal** (belum deplo
       byte dari googlevideo. **Verifikasi final 3-menit-1080p tetap perlu IP
       non-throttle (Vercel saat deploy / IP rumahan).**
 - [x] Headless Chrome: ketiga halaman tool render tanpa error JS.
-- [x] E2E browser (puppeteer-core, `scripts/e2e.mjs`): 10/10 — landing, transkrip
-      sukses & error 400, preview iframe, clip validasi & unduh mp4 ke disk
-      (durasi klip sesuai ±15s), tanpa error console. Catatan: YouTube kadang
-      rate-limit IP saat pengujian bertubi-tubi → app menampilkan ErrorNotice
-      RATE LIMIT + countdown + tombol Coba lagi (terverifikasi di E2E).
+- [x] E2E browser (puppeteer-core): **`scripts/e2e.mjs` 20/20** — landing; transkrip
+      sukses (stats, format timestamp, batasan 10 segmen, tombol "Lihat semua
+      transkrip" buka/tutup, Reset bersihkan hasil & input); transkrip error 400;
+      preview grid candidate + modal player YT.Player (iframe embed + start=65),
+      persistensi sessionStorage + Reset (hapus storage → reload tetap kosong);
+      clip validasi error, tombol Reset, unduh mp4 ke disk; tanpa error console.
+      Catatan: YouTube kadang rate-limit IP saat pengujian bertubi-tubi → app
+      menampilkan ErrorNotice RATE LIMIT + countdown + tombol Coba lagi
+      (terverifikasi di E2E). Tes lama `youtube-nocookie` dihapus — preview kini
+      memakai modal `YT.Player` (`youtube.com/embed`).
+- [x] E2E fitur baru (`scripts/e2e-features.mjs`): **7/7** — reset transkrip
+      (disabled saat kosong, aktif saat terisi), reset preview (kosongkan input +
+      textarea), **clipboard fallback** (navigator.clipboard dimatikan → copyText
+      fallback execCommand; isi terverifikasi via `readText()`), reset klip
+      (disabled saat kosong, mengosongkan videoId/start/end).
 - [ ] Log Vercel → Functions: durasi & memori `/api/clip` wajar, tidak 504
       (perlu deploy — ditunda sampai repo GitHub & Vercel dibuat user).
 - [x] Responsif mobile + light only (dark menyusul — lihat `docs/DESIGN.md`).
