@@ -158,6 +158,70 @@ try {
     "Klip: Reset mengosongkan videoId, start, dan end",
     clipReset.videoEmpty && clipReset.startEmpty && clipReset.endEmpty,
   );
+
+  // ══ 5. Auto-fill: konteks video bersama → Preview ────────────
+  await page.goto(`${BASE}/tools/preview`, { waitUntil: "networkidle0" });
+  await page.evaluate(() => {
+    sessionStorage.setItem(
+      "syahrclips:video",
+      JSON.stringify({
+        videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        videoId: "dQw4w9WgXcQ",
+        title: "T",
+        author: "A",
+      }),
+    );
+  });
+  await page.reload({ waitUntil: "networkidle0" });
+  const previewFilled = await page.evaluate(() => {
+    const input = document.querySelector('input[placeholder*="videoId"]');
+    return input ? input.value : "";
+  });
+  check(
+    "Auto-fill: Preview mengisi video dari transkrip",
+    previewFilled === "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+  );
+  const previewHint = await page.evaluate(() =>
+    document.body.innerText.includes("Video otomatis terisi dari transkrip"),
+  );
+  check("Auto-fill: Preview menampilkan petunjuk video dari langkah 1", previewHint);
+  const previewStepDone = await page.evaluate(
+    () => document.querySelector('a[aria-label="Transkrip — selesai"]') !== null,
+  );
+  check("Auto-fill: FlowSteps menandai langkah 1 selesai di Preview", previewStepDone);
+
+  // ══ 6. Auto-fill: konteks video bersama → Klip ───────────────
+  await page.goto(`${BASE}/tools/clip`, { waitUntil: "networkidle0" });
+  const klipFilled = await page.evaluate(() => {
+    const input = document.querySelector("#clip-video");
+    return input ? input.value : "";
+  });
+  check(
+    "Auto-fill: Klip mengisi video dari transkrip",
+    klipFilled === "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+  );
+  const klipBanner = await page.evaluate(() =>
+    document.body.innerText.toLowerCase().includes("video dari transkrip (langkah 1)"),
+  );
+  check("Auto-fill: Klip menampilkan banner video dari transkrip", klipBanner);
+
+  // ══ 7. Auto-fill: Reset Preview membersihkan konteks bersama ──
+  await page.goto(`${BASE}/tools/preview`, { waitUntil: "networkidle0" });
+  await page.evaluate(() => {
+    const btn = [...document.querySelectorAll("button")].find(
+      (b) => b.textContent.trim() === "Reset",
+    );
+    btn?.click();
+  });
+  await page.reload({ waitUntil: "networkidle0" });
+  const previewAfterReset = await page.evaluate(() => {
+    const input = document.querySelector('input[placeholder*="videoId"]');
+    return input ? input.value : "";
+  });
+  check(
+    "Auto-fill: Reset Preview membersihkan konteks video bersama",
+    previewAfterReset === "",
+  );
 } catch (err) {
   let state = "";
   try {

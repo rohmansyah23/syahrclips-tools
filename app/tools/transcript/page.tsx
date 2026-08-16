@@ -9,6 +9,7 @@ import { ErrorNotice } from "@/components/ErrorNotice";
 import { formatRange } from "@/lib/format";
 import { buildPromptBundle } from "@/lib/llm";
 import { copyText } from "@/lib/clipboard";
+import { clearVideoContext, saveVideoContext } from "@/lib/session";
 import type { TranscriptResult } from "@/lib/types";
 
 const SESSION_KEY = "syahrclips:transcript";
@@ -76,6 +77,12 @@ export default function TranscriptPage() {
         return;
       }
       setResult(data as TranscriptResult);
+      saveVideoContext({
+        videoUrl: url.trim(),
+        videoId: data.videoId,
+        title: data.title || undefined,
+        author: data.author || undefined,
+      });
     } catch (err) {
       setError({
         status: 0,
@@ -130,6 +137,7 @@ export default function TranscriptPage() {
     setCopyError(null);
     setShowAll(false);
     sessionStorage.removeItem(SESSION_KEY);
+    clearVideoContext();
   }
 
   return (
@@ -209,6 +217,9 @@ export default function TranscriptPage() {
               ChatGPT/Claude. LLM akan memilih momen dalam format JSON{" "}
               <code className="font-mono">{"{ start, end }"}</code>.
             </p>
+            <p className="mt-2 text-xs leading-5 text-accent">
+              Video ini otomatis terisi di Preview (langkah 2) dan Klip (langkah 3).
+            </p>
             <div className="mt-5 flex flex-wrap gap-8 border-t border-border pt-5">
               <Stat label="Segmen" value={String(result.stats.segments)} />
               <Stat label="Kata" value={String(result.stats.words)} />
@@ -254,9 +265,9 @@ export default function TranscriptPage() {
             </p>
             <Link
               href="/tools/preview"
-              className="mt-3 inline-block text-sm font-medium underline decoration-border underline-offset-4 transition-colors duration-200 hover:text-foreground"
+              className="mt-4 inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-sm bg-foreground px-5 text-sm font-medium text-background transition-all duration-200 hover:opacity-85 active:scale-[0.98]"
             >
-              Buka Preview →
+              Lanjut ke Preview → video sudah terisi
             </Link>
           </Card>
         </div>

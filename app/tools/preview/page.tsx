@@ -10,6 +10,7 @@ import { parseYouTubeUrl } from "@/lib/youtube";
 import { parseRangeToSeconds, parseTimeToSeconds } from "@/lib/time";
 import { LLM_PROMPT, TIME_CONVERSIONS } from "@/lib/constants";
 import { copyText } from "@/lib/clipboard";
+import { clearVideoContext, getVideoContext } from "@/lib/session";
 import type { ClipCandidate } from "@/lib/types";
 
 const SESSION_KEY = "syahrclips:preview";
@@ -110,25 +111,43 @@ export default function PreviewPage() {
   const [copied, setCopied] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [formOpen, setFormOpen] = useState(true);
+  const [videoFromTranscript, setVideoFromTranscript] = useState(false);
+  const [step1Done, setStep1Done] = useState(false);
+  const [restored, setRestored] = useState(false);
 
   useEffect(() => {
     try {
       const saved = sessionStorage.getItem(SESSION_KEY);
+      let restoredVideo: string | undefined;
+      let restoredJson: string | undefined;
       if (saved) {
         const parsed = JSON.parse(saved) as { videoInput?: string; jsonInput?: string };
-        // Dipulihkan sekali setelah hydration — lihat catatan di transcript page.
-        if (typeof parsed.videoInput === "string")
-          setVideoInput(parsed.videoInput); // eslint-disable-line react-hooks/set-state-in-effect
-        if (typeof parsed.jsonInput === "string") setJsonInput(parsed.jsonInput);
+        if (typeof parsed.videoInput === "string") restoredVideo = parsed.videoInput;
+        if (typeof parsed.jsonInput === "string") restoredJson = parsed.jsonInput;
       }
+      // Dipulihkan sekali setelah hydration — lihat catatan di transcript page.
+      const ctx = getVideoContext();
+      if (ctx) {
+        if (!restoredVideo) {
+          restoredVideo = ctx.videoUrl || ctx.videoId;
+          setVideoFromTranscript(true); // eslint-disable-line react-hooks/set-state-in-effect
+        }
+        setStep1Done(true);
+      }
+      if (typeof restoredVideo === "string") setVideoInput(restoredVideo);
+      if (typeof restoredJson === "string") setJsonInput(restoredJson);
+      // Sinyal bahwa pemulihan selesai — tanpa ini, efek penyimpanan menimpa
+      // sessionStorage dengan nilai kosong dari render pertama (stale closure).
+      setRestored(true);
     } catch {
       // data sesi rusak — abaikan
     }
   }, []);
 
   useEffect(() => {
+    if (!restored) return;
     sessionStorage.setItem(SESSION_KEY, JSON.stringify({ videoInput, jsonInput }));
-  }, [videoInput, jsonInput]);
+  }, [videoInput, jsonInput, restored]);
 
   async function copyPrompt() {
     await copyText(LLM_PROMPT);
@@ -183,7 +202,10 @@ export default function PreviewPage() {
     setCopied(false);
     setActiveIndex(null);
     setFormOpen(true);
+    setVideoFromTranscript(false);
+    setStep1Done(false);
     sessionStorage.removeItem(SESSION_KEY);
+    clearVideoContext();
   }
 
   function handleTune(index: number, start: number, end: number) {
@@ -220,14 +242,17 @@ export default function PreviewPage() {
         description="Tempel JSON candidate dari LLM bersama videoId/URL video, lalu pratinjau tiap rentang."
       />
 
-      <FlowSteps current={2} />
+      <FlowSteps current={2} done={step1Done ? [1] : []} />
 
       {formOpen && (
         <div className="mb-8 space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row">
             <Input
               value={videoInput}
-              onChange={(e) => setVideoInput(e.target.value)}
+              onChange={(e) => {
+                setVideoInput(e.target.value);
+                setVideoFromTranscript(false);
+              }}
               placeholder="videoId atau URL YouTube"
               className="sm:max-w-md"
             />
@@ -247,6 +272,12 @@ export default function PreviewPage() {
               Reset
             </Button>
           </div>
+          {videoFromTranscript && (
+            <p className="text-xs leading-5 text-accent">
+              ✓ Video otomatis terisi dari transkrip (langkah 1) — cukup tempel JSON
+              candidate di bawah.
+            </p>
+          )}
           {videoError && <p className="text-sm text-foreground">⚠ {videoError}</p>}
           <Textarea
             rows={8}

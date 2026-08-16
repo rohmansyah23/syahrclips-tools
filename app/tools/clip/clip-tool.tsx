@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import Link from "next/link";
 import { Button, Card, Input, SectionHeader, Select } from "@/components/ui";
@@ -8,6 +8,7 @@ import { FlowSteps } from "@/components/FlowSteps";
 import { ErrorNotice } from "@/components/ErrorNotice";
 import { CLIP_RESOLUTIONS, DEFAULT_CLIP_RESOLUTION, MAX_CLIP_SECONDS } from "@/lib/constants";
 import { formatRange, formatTimestamp } from "@/lib/format";
+import { clearVideoContext, getVideoContext } from "@/lib/session";
 import { parseTimeToSeconds } from "@/lib/time";
 import { parseYouTubeUrl } from "@/lib/youtube";
 
@@ -39,10 +40,25 @@ export function ClipTool({
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState("");
   const [error, setError] = useState<ApiError | null>(null);
+  const [videoFromTranscript, setVideoFromTranscript] = useState(false);
+
+  useEffect(() => {
+    if (initialVideoId) return;
+    const ctx = getVideoContext();
+    if (ctx) {
+      setVideoInput(ctx.videoUrl || ctx.videoId); // eslint-disable-line react-hooks/set-state-in-effect
+      setVideoFromTranscript(true);
+    }
+  }, [initialVideoId]);
 
   const startSeconds = parseTimeToSeconds(start);
   const endSeconds = parseTimeToSeconds(end);
   const rangeValid = startSeconds !== null && endSeconds !== null && endSeconds > startSeconds;
+
+  const done = [
+    videoInput ? 1 : null,
+    start && end ? 2 : null,
+  ].filter((n): n is number => n !== null);
 
   async function submitDownload() {
     const videoId = parseYouTubeUrl(videoInput);
@@ -147,6 +163,8 @@ export function ClipTool({
     setStatus("idle");
     setMessage("");
     setError(null);
+    setVideoFromTranscript(false);
+    clearVideoContext();
   }
 
   return (
@@ -159,7 +177,7 @@ export function ClipTool({
         description={`Potong rentang video menjadi klip mp4 (maks ${MAX_CLIP_SECONDS / 60} menit, hingga ${CLIP_RESOLUTIONS[0]}p) tanpa re-encode — cepat dan siap diputar.`}
       />
 
-      <FlowSteps current={3} />
+      <FlowSteps current={3} done={done} />
 
       {initialVideoId && (
         <Card className="mb-8 max-w-xl bg-muted px-4 py-3">
@@ -179,6 +197,24 @@ export function ClipTool({
         </Card>
       )}
 
+      {!initialVideoId && videoFromTranscript && (
+        <Card className="mb-8 max-w-xl bg-muted px-4 py-3">
+          <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+            Video dari transkrip (langkah 1)
+          </p>
+          <p className="mt-1 text-sm leading-6">
+            Kolom video sudah terisi otomatis. Isi rentang start/end di bawah, atau
+            pilih rentang dari halaman Preview.
+          </p>
+          <Link
+            href="/tools/preview"
+            className="mt-2 inline-block text-xs font-medium underline decoration-border underline-offset-4 transition-colors duration-200 hover:text-foreground"
+          >
+            Pilih rentang di Preview →
+          </Link>
+        </Card>
+      )}
+
       <form onSubmit={handleDownload} className="mb-8 max-w-xl space-y-4">
         <div>
           <label htmlFor="clip-video" className="micro-label mb-2 block text-muted-foreground">
@@ -187,7 +223,10 @@ export function ClipTool({
           <Input
             id="clip-video"
             value={videoInput}
-            onChange={(e) => setVideoInput(e.target.value)}
+            onChange={(e) => {
+              setVideoInput(e.target.value);
+              setVideoFromTranscript(false);
+            }}
             placeholder="https://www.youtube.com/watch?v=…"
           />
         </div>

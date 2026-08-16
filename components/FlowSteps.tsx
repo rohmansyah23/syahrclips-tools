@@ -6,12 +6,14 @@ const steps = [
   { num: "3", label: "Klip", href: "/tools/clip" },
 ];
 
-export function FlowSteps({ current }: { current: number }) {
+export function FlowSteps({ current, done = [] }: { current: number; done?: number[] }) {
   return (
     <nav aria-label="Alur langkah" className="mb-10 max-w-2xl">
       <ol className="flex flex-wrap items-center gap-x-3 gap-y-2 font-mono text-xs tracking-wider text-muted-foreground">
         {steps.map((step, i) => {
+          const num = Number(step.num);
           const active = step.num === String(current);
+          const completed = done.includes(num);
           return (
             <li key={step.num} className="flex flex-wrap items-center gap-x-3">
               {i > 0 && (
@@ -29,8 +31,14 @@ export function FlowSteps({ current }: { current: number }) {
               ) : (
                 <Link
                   href={step.href}
+                  aria-label={completed ? `${step.label} — selesai` : `Buka ${step.label}`}
                   className="flex items-center gap-1.5 transition-colors duration-200 hover:text-foreground"
                 >
+                  {completed && (
+                    <span aria-hidden="true" className="text-accent">
+                      ✓
+                    </span>
+                  )}
                   <span>{step.num}</span>
                   <span>{step.label}</span>
                 </Link>
