@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type {
   ButtonHTMLAttributes,
   HTMLAttributes,
@@ -134,12 +135,34 @@ interface SectionHeaderProps {
   label: string;
   title: string;
   description?: string;
+  breadcrumb?: string;
   children?: ReactNode;
 }
 
-export function SectionHeader({ index, label, title, description, children }: SectionHeaderProps) {
+export function SectionHeader({
+  index,
+  label,
+  title,
+  description,
+  breadcrumb,
+  children,
+}: SectionHeaderProps) {
   return (
     <section className="mb-10 max-w-2xl">
+      {breadcrumb && (
+        <nav
+          aria-label="Breadcrumb"
+          className="mb-5 flex flex-wrap items-center gap-2 font-mono text-xs tracking-wider text-muted-foreground"
+        >
+          <Link href="/" className="transition-colors duration-200 hover:text-foreground">
+            Home
+          </Link>
+          <span aria-hidden="true" className="text-border">
+            /
+          </span>
+          <span className="text-foreground">{breadcrumb}</span>
+        </nav>
+      )}
       <p className="micro-label mb-4 text-accent">
         {index} / {label}
       </p>

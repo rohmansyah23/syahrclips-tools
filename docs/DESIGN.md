@@ -128,6 +128,12 @@ Semua mengikuti `components/ui/*` di syahrworks-portfolio.
 - Interaktif: `hover:bg-muted`, transisi 200ms.
 - Pemisah dalam kartu: `border-t/b order-border`.
 
+### FlowSteps (`components/FlowSteps.tsx`)
+- Penanda alur 3 langkah di tiap halaman tool: `1 Transkrip → 2 Preview → 3 Klip`.
+- Gaya `font-mono text-xs tracking-wider text-muted-foreground`; separator `→` warna `--border`.
+- Langkah aktif: `text-foreground` + underline hairline; lainnya link (`hover:text-foreground`).
+- Prop `current` (1|2|3); dipasang di bawah SectionHeader.
+
 ## 5. Layout & Tema
 
 - **Tema**: light-only. Satu source of truth token di `globals.css`.
@@ -138,29 +144,92 @@ Semua mengikuti `components/ui/*` di syahrworks-portfolio.
   Kanan: navigasi tools + (nantinya) theme toggle.
 - **Section header** (tiap halaman tool):
   ```
+  [breadcrumb mono text-xs muted]  Home / Transkrip
   [micro-label text-accent]  01 / TRANSCRIPT
   [serif text-4xl sm:text-5xl tracking-tight]  Unduh Transkrip YouTube
   [text-base muted-foreground]  Deskripsi singkat …
   ```
-- **Landing**: daftar 3 tool sebagai kartu hairline 1 kolom di mobile, grid di desktop
-  — konten-first, tombol "Buka tool" mono kecil.
+- **Breadcrumb**: baris paling atas tiap halaman tool — `Home / <Label>`, "Home" adalah
+  link ke `/`, label halaman aktif teks biasa (non-link). Gaya `font-mono text-xs
+  tracking-wider text-muted-foreground`, pemisah `/` warna `--border`.
+  (disediakan `SectionHeader` via prop `breadcrumb`).
+- **Landing**: tampilan **alur berurutan** — blok "Bagaimana alur lengkapnya?"
+  (kartu hairline, 4 poin termasuk langkah LLM eksternal) + 3 baris langkah
+  bernomor 01/02/03 (serif besar di kiri, penghubung `↓` di mobile), tiap baris:
+  label mono accent, judul serif, deskripsi, CTA "Mulai langkah N →".
+- **Handoff antar langkah**: tiap halaman tool memberi tahu "lanjut ke mana" —
+  Transkrip → hint "Langkah berikutnya" ke Preview (setelah hasil); Preview →
+  tombol **Muat contoh** (isi JSON + videoId contoh, langsung jalankan preview)
+  + microcopy asal JSON (link ke langkah 1); Klip → note "Klip dari candidate
+  preview" + "← Kembali ke Preview" saat dibuka lewat param dari Preview.
+- **Prompt guide (anti salah kalkulasi LLM)**: transkrip memakai `[HH:MM:SS – HH:MM:SS]`
+  (jam:menit:detik), rawan dibaca LLM sebagai menit:detik.
+  - **Transkrip**: tombol **"Salin prompt + transkrip"** di kartu hasil — satu klik
+    menyiapkan `LLM_PROMPT` + teks transkrip (lihat `buildPromptBundle` di `lib/llm.ts`).
+  - **Preview**: kartu "Prompt untuk LLM" (tabel konversi mono `TIME_CONVERSIONS` +
+    `<details>` prompt lengkap + tombol **Salin prompt**).
+- **Auto-konversi waktu (`lib/time.ts`)**: `start`/`end` di JSON Preview otomatis
+  dikonversi ke detik — menerima angka, string angka (`"65"`), `MM:SS` (`"01:05"`),
+  `HH:MM:SS` (`"00:01:05"`), dan rentang `"00:00:00 – 00:00:07"` (dipecah jadi
+  start/end). Kartu menampilkan catatan mono `auto-konversi: …` / `rentang dipecah: …`.
+- **Persistensi session (`sessionStorage`)**: transkrip terakhir (`syahrclips:transcript`)
+  dan isian Preview (`syahrclips:preview`) dipulihkan saat mount — pindah halaman/
+  refresh tidak menghilangkan data. Muat via `useEffect` agar aman dari hydration mismatch.
 
 ## 6. Mapping Halaman
 
 ### `/` — Landing
-Header + section header `01 / TOOLS` + 3 kartu tool (nama, deskripsi, badge "Baru").
+Header + section header `TOOLS` (tanpa angka) + blok "Bagaimana alur lengkapnya?"
++ 3 baris langkah bernomor 01/02/03 (alur berurutan), tiap baris link ke halaman tool.
 
 ### `/tools/transcript` — F1
-Section header `02 / TRANSCRIPT` → form URL (Input + Button) → hasil:
-- Kartu metadata: badge YouTube + statistik (segmen/kata/karakter) + tombol **Salin semua** & **↓ .txt**.
+Section header `01 / TRANSCRIPT` (breadcrumb `Home / Transkrip`) + FlowSteps
+`current={1}` → form URL (Input + Button) → hasil:
+- Kartu metadata: badge YouTube + statistik (segmen/kata/karakter) + tombol
+  **Salin prompt + transkrip** (primary) / **Salin semua** / **↓ .txt**.
 - Daftar segmen: tabel hairline, kolom timestamp mono (`HH:MM:SS – HH:MM:SS`) + teks.
+- Kartu hint **"Langkah berikutnya"** → link "Buka Preview" (setelah hasil tampil).
+- Persistensi session: hasil disimpan & dipulihkan.
 
 ### `/tools/preview` — F2
-Section header `03 / PREVIEW` → textarea JSON + tombol **Preview** → grid kartu candidate,
-tiap kartu: iframe player, range mono, `reason`, tombol **Unduh klip**.
+Section header `02 / PREVIEW` (breadcrumb `Home / Preview`) + FlowSteps
+`current={2}` → input videoId/URL + tombol **Preview** & **Muat contoh** →
+textarea JSON + microcopy asal JSON (link ke langkah 1) → kartu **"Prompt untuk LLM"**
+(tabel konversi + `<details>` prompt + **Salin prompt**) → grid kartu candidate,
+tiap kartu: range mono, `reason`, catatan `auto-konversi` bila perlu, tombol
+**Lihat Video** (buka modal) · **Salin format** · **Unduh klip**.
+`start`/`end` otomatis dikonversi dari format waktu ke detik (`lib/time.ts`).
+Isian dipersistenkan di sessionStorage.
+
+- **Form collapsible**: saat hasil preview muncul, blok form (videoId + textarea
+  JSON + microcopy) otomatis tersembunyi — bar compact hasil menampilkan badge
+  YouTube · videoId · jumlah valid + tombol **Edit JSON** (toggle, jadi **Tutup
+  form** saat terbuka). JSON error → form tetap terbuka.
+- **Kartu "Prompt untuk LLM"** dirender di **paling bawah** (setelah grid hasil)
+  bila hasil tampil; bila belum ada hasil tetap mengikuti form.
+
+- **Playback lewat modal (`components/CandidateModal.tsx`)**: tidak memakai
+  iframe `?start&end` langsung (native YouTube bisa loncat balik ke 0 saat end).
+  Modal memakai **YouTube IFrame Player API** tanpa param `end`; polling `currentTime`
+  menghentikan video tepat di akhir rentang → muncul tombol **Putar ulang**
+  (`seekTo(start)` + play). Tidak ada loncatan ke 0.
+- **Modal**: kartu overlay `bg-black/70`, area player `aspect-video`, tutup via
+  tombol **X**, klik backdrop, dan **ESC**; scroll body terkunci saat terbuka;
+  `player.destroy()` saat tutup. Tombol **Unduh klip** tersedia di dalam modal.
+- **Tuning (icon pensil, di dalam modal)**: toggle area edit start/end — menerima
+  detik (`65`), `MM:SS` (`01:05`), `HH:MM:SS` (`00:01:05`). **Simpan & putar ulang**
+  memperbarui kartu + menulis balik item ke textarea JSON secara lossless
+  (terpersistensi via sessionStorage), lalu `seekTo` + play dengan rentang baru.
 
 ### `/tools/clip` — F3
-Section header `04 / CLIP` → form (URL + start + end) → tombol **Download klip**
+Section header `03 / CLIP` (breadcrumb `Home / Klip`) + FlowSteps `current={3}`
+→ (bila dibuka dari Preview) note "Klip dari candidate preview" + "← Kembali ke Preview"
+→ form (URL + start + end) — start/end menerima detik (`65`), `MM:SS` (`01:05`),
+  atau `HH:MM:SS` (`00:01:05`), otomatis dikonversi ke detik saat request
+  (`lib/time.ts`, konsisten dengan Preview); badge mono **Rentang aktif**
+  `[HH:MM:SS – HH:MM:SS]` tampil live bila rentang valid — format sama persis
+  dengan kartu candidate di Preview
+→ tombol **Download klip**
 → status (mempersiapkan… / selesai / error) → link unduh mp4.
 
 ## 7. Motion

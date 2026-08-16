@@ -2,9 +2,13 @@
 
 import { useState } from "react";
 import type { FormEvent } from "react";
+import Link from "next/link";
 import { Button, Card, Input, SectionHeader, Select } from "@/components/ui";
+import { FlowSteps } from "@/components/FlowSteps";
 import { ErrorNotice } from "@/components/ErrorNotice";
 import { CLIP_RESOLUTIONS, DEFAULT_CLIP_RESOLUTION, MAX_CLIP_SECONDS } from "@/lib/constants";
+import { formatRange, formatTimestamp } from "@/lib/format";
+import { parseTimeToSeconds } from "@/lib/time";
 import { parseYouTubeUrl } from "@/lib/youtube";
 
 type Status = "idle" | "loading" | "done" | "error";
@@ -12,6 +16,11 @@ type Status = "idle" | "loading" | "done" | "error";
 interface ApiError {
   status: number;
   message: string;
+}
+
+function formatInitialSeconds(value: string): string {
+  const seconds = parseTimeToSeconds(value);
+  return seconds === null ? value : formatTimestamp(seconds);
 }
 
 export function ClipTool({
@@ -24,12 +33,16 @@ export function ClipTool({
   initialEnd: string;
 }) {
   const [videoInput, setVideoInput] = useState(initialVideoId);
-  const [start, setStart] = useState(initialStart);
-  const [end, setEnd] = useState(initialEnd);
+  const [start, setStart] = useState(() => formatInitialSeconds(initialStart));
+  const [end, setEnd] = useState(() => formatInitialSeconds(initialEnd));
   const [resolution, setResolution] = useState(String(DEFAULT_CLIP_RESOLUTION));
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState("");
   const [error, setError] = useState<ApiError | null>(null);
+
+  const startSeconds = parseTimeToSeconds(start);
+  const endSeconds = parseTimeToSeconds(end);
+  const rangeValid = startSeconds !== null && endSeconds !== null && endSeconds > startSeconds;
 
   async function submitDownload() {
     const videoId = parseYouTubeUrl(videoInput);
@@ -40,12 +53,20 @@ export function ClipTool({
     }
     if (!start || !end) {
       setStatus("error");
-      setError({ status: 0, message: "Isi start dan end (detik)." });
+      setError({ status: 0, message: "Isi start dan end (mis. 65, 01:05, atau 00:01:05)." });
       return;
     }
-    const s = Number(start);
-    const en = Number(end);
-    if (!Number.isFinite(s) || !Number.isFinite(en) || s < 0 || en <= s) {
+    const s = parseTimeToSeconds(start);
+    const en = parseTimeToSeconds(end);
+    if (s === null || en === null) {
+      setStatus("error");
+      setError({
+        status: 0,
+        message: "Start/end tidak dikenali — terima 65, 01:05, atau 00:01:05.",
+      });
+      return;
+    }
+    if (s < 0 || en <= s) {
       setStatus("error");
       setError({ status: 0, message: "Rentang tidak valid: start ≥ 0 dan end > start." });
       return;
@@ -58,7 +79,12 @@ export function ClipTool({
       const res = await fetch("/api/clip", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ videoId, start: s, end: en, resolution: Number(resolution) }),
+        body: JSON.stringify({
+          videoId,
+          start: Math.floor(s),
+          end: Math.ceil(en),
+          resolution: Number(resolution),
+        }),
       });
       if (!res.ok) {
         let msg = "Gagal membuat klip.";
@@ -116,11 +142,32 @@ export function ClipTool({
   return (
     <div className="container-editorial py-14 sm:py-20">
       <SectionHeader
-        index="04"
+        index="03"
         label="CLIP"
+        breadcrumb="Klip"
         title="Download Klip Video"
         description={`Potong rentang video menjadi klip mp4 (maks ${MAX_CLIP_SECONDS / 60} menit, hingga ${CLIP_RESOLUTIONS[0]}p) tanpa re-encode — cepat dan siap diputar.`}
       />
+
+      <FlowSteps current={3} />
+
+      {initialVideoId && (
+        <Card className="mb-8 max-w-xl bg-muted px-4 py-3">
+          <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+            Klip dari candidate preview
+          </p>
+          <p className="mt-1 text-sm leading-6">
+            Video dan rentang sudah terisi dari halaman Preview. Ubah bila perlu,
+            lalu unduh.
+          </p>
+          <Link
+            href="/tools/preview"
+            className="mt-2 inline-block text-xs font-medium underline decoration-border underline-offset-4 transition-colors duration-200 hover:text-foreground"
+          >
+            ← Kembali ke Preview
+          </Link>
+        </Card>
+      )}
 
       <form onSubmit={handleDownload} className="mb-8 max-w-xl space-y-4">
         <div>
@@ -137,31 +184,31 @@ export function ClipTool({
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label htmlFor="clip-start" className="micro-label mb-2 block text-muted-foreground">
-              Start (detik)
+              Start
             </label>
             <Input
               id="clip-start"
-              type="number"
-              min={0}
-              step={1}
               value={start}
               onChange={(e) => setStart(e.target.value)}
-              placeholder="65"
+              placeholder="00:01:05"
             />
+            <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
+              Terima 65, 01:05, atau 00:01:05.
+            </p>
           </div>
           <div>
             <label htmlFor="clip-end" className="micro-label mb-2 block text-muted-foreground">
-              End (detik)
+              End
             </label>
             <Input
               id="clip-end"
-              type="number"
-              min={0}
-              step={1}
               value={end}
               onChange={(e) => setEnd(e.target.value)}
-              placeholder="70"
+              placeholder="00:01:10"
             />
+            <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
+              Terima 70, 01:10, atau 00:01:10.
+            </p>
           </div>
           <div>
             <label htmlFor="clip-resolution" className="micro-label mb-2 block text-muted-foreground">
@@ -183,6 +230,17 @@ export function ClipTool({
             </p>
           </div>
         </div>
+        {rangeValid && (
+          <div className="border-t border-border pt-4">
+            <p className="micro-label mb-1 text-muted-foreground">Rentang aktif</p>
+            <p className="font-mono text-sm text-accent">
+              {formatRange(startSeconds, endSeconds)}
+            </p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Format sama dengan di halaman Preview.
+            </p>
+          </div>
+        )}
         <Button type="submit" disabled={status === "loading"}>
           {status === "loading" ? "Menyiapkan klip…" : "Download klip"}
         </Button>
