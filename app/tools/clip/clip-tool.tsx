@@ -259,7 +259,7 @@ export function ClipTool({
               Terima 70, 01:10, atau 00:01:10.
             </p>
           </div>
-          <div>
+          <div className="col-span-2 sm:col-span-1">
             <label htmlFor="clip-resolution" className="micro-label mb-2 block text-muted-foreground">
               Resolusi maksimal
             </label>
@@ -290,7 +290,7 @@ export function ClipTool({
             </p>
           </div>
         )}
-        <Button type="submit" disabled={status === "loading"}>
+        <Button type="submit" disabled={status === "loading"} className="w-full sm:w-auto">
           {status === "loading" ? "Menyiapkan klip…" : "Download klip"}
         </Button>
         <Button
@@ -298,6 +298,7 @@ export function ClipTool({
           variant="secondary"
           onClick={resetAll}
           disabled={status === "loading" || (!videoInput && !start && !end)}
+          className="w-full sm:w-auto"
         >
           Reset
         </Button>

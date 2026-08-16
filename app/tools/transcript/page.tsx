@@ -159,7 +159,7 @@ export default function TranscriptPage() {
           placeholder="https://www.youtube.com/watch?v=…"
           className="sm:max-w-xl"
         />
-        <Button type="submit" disabled={loading || !url.trim()} className="sm:shrink-0">
+        <Button type="submit" disabled={loading || !url.trim()} className="w-full sm:w-auto sm:shrink-0">
           {loading ? "Mengambil transkrip…" : "Ambil transkrip"}
         </Button>
         <Button
@@ -167,7 +167,7 @@ export default function TranscriptPage() {
           variant="secondary"
           onClick={resetAll}
           disabled={!url.trim() && !result}
-          className="sm:shrink-0"
+          className="w-full sm:w-auto sm:shrink-0"
         >
           Reset
         </Button>
@@ -189,14 +189,14 @@ export default function TranscriptPage() {
             <div className="mb-4 flex flex-wrap items-center gap-3">
               <Badge variant="accent">YouTube</Badge>
               <span className="font-mono text-xs text-muted-foreground">{result.videoId}</span>
-              <span className="ml-auto flex flex-wrap gap-2">
-                <Button size="sm" onClick={copyPromptBundle}>
+              <span className="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+                <Button size="sm" onClick={copyPromptBundle} className="w-full sm:w-auto">
                   {copied ? "Prompt tersalin ✓" : "Salin prompt + transkrip"}
                 </Button>
-                <Button size="sm" variant="secondary" onClick={copyAll}>
+                <Button size="sm" variant="secondary" onClick={copyAll} className="w-full sm:w-auto">
                   Salin semua
                 </Button>
-                <Button size="sm" variant="secondary" onClick={downloadTxt}>
+                <Button size="sm" variant="secondary" onClick={downloadTxt} className="w-full sm:w-auto">
                   ↓ .txt
                 </Button>
               </span>
@@ -248,7 +248,7 @@ export default function TranscriptPage() {
 
           {result.segments.length > INITIAL_SEGMENTS && (
             <div className="text-center">
-              <Button variant="secondary" onClick={() => setShowAll((v) => !v)}>
+              <Button variant="secondary" onClick={() => setShowAll((v) => !v)} className="w-full sm:w-auto">
                 {showAll
                   ? "Tampilkan lebih sedikit"
                   : `Lihat semua transkrip (${result.segments.length} segmen)`}
@@ -265,7 +265,7 @@ export default function TranscriptPage() {
             </p>
             <Link
               href="/tools/preview"
-              className="mt-4 inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-sm bg-foreground px-5 text-sm font-medium text-background transition-all duration-200 hover:opacity-85 active:scale-[0.98]"
+              className="mt-4 inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-sm bg-foreground px-5 text-sm font-medium text-background transition-all duration-200 hover:opacity-85 active:scale-[0.98] sm:w-auto"
             >
               Lanjut ke Preview → video sudah terisi
             </Link>

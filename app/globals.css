@@ -62,3 +62,13 @@ body {
     padding-inline: 2rem;
   }
 }
+
+/* iOS mem-zoom otomatis saat field disentuh bila font-size < 16px.
+   Berlaku hanya untuk perangkat touch (pointer: coarse) — desktop tak berubah. */
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}

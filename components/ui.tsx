@@ -23,7 +23,7 @@ const buttonVariants: Record<ButtonVariant, string> = {
 
 const buttonSizes: Record<ButtonSize, string> = {
   default: "h-10 px-5 text-sm",
-  sm: "h-8 px-3.5 text-xs",
+  sm: "h-10 px-4 text-sm sm:h-8 sm:px-3.5 sm:text-xs",
   icon: "h-10 w-10",
 };
 

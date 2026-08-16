@@ -256,10 +256,15 @@ export default function PreviewPage() {
               placeholder="videoId atau URL YouTube"
               className="sm:max-w-md"
             />
-            <Button onClick={handlePreview} className="sm:shrink-0">
+            <Button onClick={handlePreview} className="w-full sm:w-auto sm:shrink-0">
               Preview
             </Button>
-            <Button type="button" variant="secondary" onClick={loadExample} className="sm:shrink-0">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={loadExample}
+              className="w-full sm:w-auto sm:shrink-0"
+            >
               Muat contoh
             </Button>
             <Button
@@ -267,7 +272,7 @@ export default function PreviewPage() {
               variant="secondary"
               onClick={resetAll}
               disabled={!videoInput && !jsonInput && candidates.length === 0}
-              className="sm:shrink-0"
+              className="w-full sm:w-auto sm:shrink-0"
             >
               Reset
             </Button>
@@ -311,12 +316,12 @@ export default function PreviewPage() {
             <Button
               size="sm"
               variant="ghost"
-              className="ml-auto"
+              className="ml-auto w-full sm:w-auto"
               onClick={() => setFormOpen((v) => !v)}
             >
               {formOpen ? "Tutup form" : "Edit JSON"}
             </Button>
-            <Button size="sm" variant="ghost" onClick={resetAll}>
+            <Button size="sm" variant="ghost" onClick={resetAll} className="w-full sm:w-auto">
               Reset
             </Button>
           </div>
@@ -362,7 +367,7 @@ export default function PreviewPage() {
                     </Button>
                     <Link
                       href={`/tools/clip?videoId=${videoId}&start=${Math.floor(c.start)}&end=${Math.ceil(c.end)}`}
-                      className="inline-flex h-8 cursor-pointer items-center justify-center gap-2 rounded-sm bg-foreground px-3.5 text-xs font-medium text-background transition-all duration-200 hover:opacity-85 active:scale-[0.98]"
+                      className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-sm bg-foreground px-4 text-sm font-medium text-background transition-all duration-200 hover:opacity-85 active:scale-[0.98] sm:h-8 sm:px-3.5 sm:text-xs"
                     >
                       Unduh klip
                     </Link>

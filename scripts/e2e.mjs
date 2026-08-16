@@ -135,7 +135,12 @@ try {
   // ── 4. Preview: grid candidate + modal player YT.Player ─────
   await page.goto(`${BASE}/tools/preview`, { waitUntil: "networkidle0" });
   await page.type('input[placeholder*="videoId"]', VIDEO);
-  await page.click('button:not([disabled])'); // tombol pertama di form = Preview
+  await page.evaluate(() => {
+    const btn = [...document.querySelectorAll("button")].find(
+      (b) => b.textContent.trim() === "Preview",
+    );
+    btn?.click();
+  });
   await waitForText(page, "candidate valid", 15000);
   const candidateCount = await page.$$eval("[class*='lg:grid-cols-2'] > div", (els) => els.length);
   check("Preview: 2 kartu candidate (contoh JSON)", candidateCount === 2, `kartu=${candidateCount}`);

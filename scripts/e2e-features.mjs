@@ -222,6 +222,50 @@ try {
     "Auto-fill: Reset Preview membersihkan konteks video bersama",
     previewAfterReset === "",
   );
+
+  // ══ 8. Mobile (375×667): tanpa overflow horizontal ───────────
+  await page.setViewport({ width: 375, height: 667 });
+  for (const path of ["/", "/tools/transcript", "/tools/preview", "/tools/clip"]) {
+    await page.goto(`${BASE}${path}`, { waitUntil: "networkidle0" });
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - window.innerWidth,
+    );
+    check(`Mobile: tanpa overflow horizontal @ ${path || "/"}`, overflow <= 0, `${overflow}px`);
+  }
+
+  // ══ 9. Mobile: hamburger menu ────────────────────────────────
+  await page.goto(`${BASE}/tools/transcript`, { waitUntil: "networkidle0" });
+  const hamburgerVisible = await page.evaluate(
+    () => document.querySelector('button[aria-label="Buka menu"]') !== null,
+  );
+  check("Mobile: tombol hamburger tampil", hamburgerVisible);
+
+  await page.evaluate(() => {
+    document.querySelector('button[aria-label="Buka menu"]')?.click();
+  });
+  const menuItems = await page.evaluate(() => {
+    const nav = document.querySelector("#mobile-menu");
+    if (!nav) return [];
+    return [...nav.querySelectorAll("a")].map((a) => (a.textContent || "").trim());
+  });
+  check(
+    "Mobile: hamburger membuka menu dengan 3 link",
+    menuItems.length === 3 && menuItems[0].includes("Transkrip"),
+    menuItems.join(", "),
+  );
+
+  await page.evaluate(() => {
+    const link = [...document.querySelectorAll("#mobile-menu a")].find((a) =>
+      (a.textContent || "").includes("Preview"),
+    );
+    link?.click();
+  });
+  await page.waitForFunction(
+    () => location.pathname.startsWith("/tools/preview"),
+    { timeout: 10000 },
+  );
+  const menuClosed = await page.evaluate(() => document.querySelector("#mobile-menu") === null);
+  check("Mobile: klik link menavigasi & menu tertutup", menuClosed);
 } catch (err) {
   let state = "";
   try {

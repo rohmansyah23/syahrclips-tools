@@ -249,12 +249,12 @@ export function CandidateModal({
       role="dialog"
       aria-modal="true"
       aria-label="Preview klip"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 py-6 sm:items-center sm:py-8"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-3xl overflow-hidden rounded-md border border-border bg-card">
+      <div className="my-auto w-full max-w-3xl overflow-hidden rounded-md border border-border bg-card">
         <div className="flex items-center justify-between gap-4 border-b border-border px-5 py-3">
           <p className="truncate font-mono text-xs text-accent">{formatRange(start, end)}</p>
           <button
@@ -342,7 +342,7 @@ export function CandidateModal({
             <p className="text-xs text-muted-foreground">Tekan ESC untuk menutup.</p>
             <Link
               href={`/tools/clip?videoId=${videoId}&start=${Math.floor(start)}&end=${Math.ceil(end)}`}
-              className="inline-flex h-8 cursor-pointer items-center justify-center gap-2 rounded-sm bg-foreground px-3.5 text-xs font-medium text-background transition-all duration-200 hover:opacity-85 active:scale-[0.98]"
+              className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-sm bg-foreground px-4 text-sm font-medium text-background transition-all duration-200 hover:opacity-85 active:scale-[0.98] sm:h-8 sm:px-3.5 sm:text-xs"
             >
               Unduh klip →
             </Link>
